@@ -13,7 +13,7 @@ func metadataFields(objectName string) map[string]*schema.Schema {
 			Description:  fmt.Sprintf("An unstructured key value map stored with the %s that may be used to store arbitrary metadata. More info: http://kubernetes.io/docs/user-guide/annotations", objectName),
 			Optional:     true,
 			Elem:         &schema.Schema{Type: schema.TypeString},
-			ValidateFunc: validateAnnotations,
+			ValidateFunc: validateInternalAnnotations,
 		},
 		"generation": {
 			Type:        schema.TypeInt,

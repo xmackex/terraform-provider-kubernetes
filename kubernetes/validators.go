@@ -28,6 +28,19 @@ func validateAnnotations(value interface{}, key string) (ws []string, es []error
 	return
 }
 
+func validateInternalAnnotations(value interface{}, key string) (ws []string, es []error) {
+	m := value.(map[string]interface{})
+	for k := range m {
+		errors := utilValidation.IsQualifiedName(strings.ToLower(k))
+		if len(errors) > 0 {
+			for _, e := range errors {
+				es = append(es, fmt.Errorf("%s (%q) %s", key, k, e))
+			}
+		}
+	}
+	return
+}
+
 func validateName(value interface{}, key string) (ws []string, es []error) {
 	v := value.(string)
 	errors := apiValidation.NameIsDNSSubdomain(v, false)
