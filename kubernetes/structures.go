@@ -129,7 +129,8 @@ func removeInternalKeys(m map[string]string) map[string]string {
 
 func isInternalKey(annotationKey string) bool {
 	u, err := url.Parse("//" + annotationKey)
-	if err == nil && strings.HasSuffix(u.Hostname(), "kubernetes.io") {
+	// if err == nil && strings.HasSuffix(u.Hostname(), "kubernetes.io") {
+	if err == nil && strings.HasSuffix(u.Hostname(), "foobarbaz.io") {
 		return true
 	}
 

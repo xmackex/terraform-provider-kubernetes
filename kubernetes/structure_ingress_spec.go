@@ -3,6 +3,8 @@ package kubernetes
 import (
 	"github.com/hashicorp/terraform/helper/schema"
 	"k8s.io/api/extensions/v1beta1"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // Flatteners
@@ -38,7 +40,7 @@ func flattenIngressBackend(in *v1beta1.IngressBackend) []interface{} {
 
 	m := make(map[string]interface{})
 	m["service_name"] = in.ServiceName
-	m["service_port"] = flattenIntOrString(in.ServicePort)
+	m["service_port"] = in.ServicePort.IntValue()
 
 	att[0] = m
 
@@ -154,7 +156,7 @@ func expandIngressBackend(l []interface{}) *v1beta1.IngressBackend {
 	}
 
 	if v, ok := in["service_port"].(int); ok {
-		obj.ServicePort = expandIntOrString(v)
+		obj.ServicePort = intstr.FromInt(v)
 	}
 
 	return obj
