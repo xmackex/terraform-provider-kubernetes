@@ -1,4 +1,25 @@
-## 1.6.0 (Unreleased)
+## 1.5.3 (Unreleased)
+## 1.5.2 (February 28, 2019)
+
+BUG FIXES:
+* Fix `api_group` attribute attribute of RBAC subjects. (#331)
+
+## 1.5.1 (February 18, 2019)
+
+FEATURES:
+* New resources: DaemonSet and ClusterRole (#229)
+
+IMPROVEMENTS:
+* Add test infrastructure for AKS and EKS (#291)
+* Add `publish_not_ready_addresses` to `kubernetes_service` (#306)
+* Populate `default_secret` for Service Account when multiple secrets are present (#281)
+
+BUG FIXES:
+* Declare `env` argument type correctly in Pod config (#304)
+* Fix service datasource after #306 broke it (#313)
+* Fix docs correcting `automount_service_account_token` location for Service Acount (#278)
+* Fix docs typo (#279)
+
 ## 1.5.0 (January 14, 2019)
 
 FEATURES:
