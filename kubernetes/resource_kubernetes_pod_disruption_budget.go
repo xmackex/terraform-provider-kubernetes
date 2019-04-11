@@ -83,13 +83,6 @@ func resourceKubernetesPodDisruptionBudgetUpdate(d *schema.ResourceData, meta in
 	}
 
 	ops := patchMetadata("metadata.0.", "/metadata/", d)
-	if d.HasChange("spec") {
-		specOps, err := patchPodDisruptionBudgetSpec("spec.0.", "/spec", d)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, *specOps...)
-	}
 	data, err := ops.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("Failed to marshal update operations: %s", err)
