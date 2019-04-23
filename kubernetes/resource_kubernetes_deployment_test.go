@@ -76,6 +76,19 @@ func TestAccKubernetesDeployment_initContainer(t *testing.T) {
 					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.init_container.0.command.3", "http://kubernetes.io"),
 					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.init_container.0.volume_mount.0.name", "workdir"),
 					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.init_container.0.volume_mount.0.mount_path", "/work-dir"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.#", "1"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.nameservers.#", "3"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.nameservers.0", "1.1.1.1"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.nameservers.1", "8.8.8.8"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.nameservers.2", "9.9.9.9"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.searches.#", "1"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.searches.0", "kubernetes.io"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.option.#", "2"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.option.0.name", "ndots"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.option.0.value", "1"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.option.1.name", "use-vc"),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_config.0.option.1.value", ""),
+					resource.TestCheckResourceAttr(deploymentTestResourceName, "spec.0.template.0.spec.0.dns_policy", "Default"),
 				),
 			},
 		},
@@ -643,12 +656,12 @@ func testAccKubernetesDeploymentConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_deployment" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       TestAnnotationTwo = "two"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
@@ -661,7 +674,7 @@ resource "kubernetes_deployment" "test" {
     replicas = 100 # This is intentionally high to exercise the waiter
 
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
@@ -670,7 +683,7 @@ resource "kubernetes_deployment" "test" {
 
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
@@ -700,12 +713,12 @@ func testAccKubernetesDeploymentConfig_initContainer(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_deployment" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       TestAnnotationTwo = "two"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
@@ -718,7 +731,7 @@ resource "kubernetes_deployment" "test" {
     replicas = 100 # This is intentionally high to exercise the waiter
 
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
@@ -727,7 +740,7 @@ resource "kubernetes_deployment" "test" {
 
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
@@ -774,11 +787,25 @@ resource "kubernetes_deployment" "test" {
           }
         }
 
+        dns_config {
+          nameservers = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
+          searches    = ["kubernetes.io"]
+
+          option {
+            name  = "ndots"
+            value = 1
+          }
+
+          option {
+            name = "use-vc"
+          }
+        }
+
         dns_policy = "Default"
 
         volume {
           name      = "workdir"
-          empty_dir = {}
+          empty_dir {}
         }
       }
     }
@@ -791,12 +818,12 @@ func testAccKubernetesDeploymentConfig_modified(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_deployment" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       Different         = "1234"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelThree = "three"
     }
@@ -806,7 +833,7 @@ resource "kubernetes_deployment" "test" {
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
@@ -815,7 +842,7 @@ resource "kubernetes_deployment" "test" {
 
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
@@ -838,7 +865,7 @@ func testAccKubernetesDeploymentConfig_generatedName(prefix string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_deployment" "test" {
   metadata {
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
@@ -849,7 +876,7 @@ resource "kubernetes_deployment" "test" {
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
@@ -858,7 +885,7 @@ resource "kubernetes_deployment" "test" {
 
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
@@ -883,21 +910,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -927,21 +954,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -974,21 +1001,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1027,21 +1054,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1074,29 +1101,29 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
 
       spec {
         container {
-          image = "%s"
-          name  = "containername"
+          image   = "%s"
+          name    = "containername"
           command = ["sleep", "60"]
 
           lifecycle {
@@ -1126,21 +1153,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1170,7 +1197,7 @@ resource "kubernetes_deployment" "test" {
 
             capabilities {
               drop = ["all"]
-              add = ["NET_BIND_SERVICE"]
+              add  = ["NET_BIND_SERVICE"]
             }
 
             privileged                = true
@@ -1197,7 +1224,7 @@ resource "kubernetes_secret" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one = "first"
   }
 }
@@ -1206,21 +1233,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1239,7 +1266,7 @@ resource "kubernetes_deployment" "test" {
         volume {
           name = "db"
 
-          secret = {
+          secret {
             secret_name = "${kubernetes_secret.test.metadata.0.name}"
           }
         }
@@ -1256,21 +1283,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1305,21 +1332,21 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1338,7 +1365,7 @@ resource "kubernetes_deployment" "test" {
         volume {
           name = "cache-volume"
 
-          empty_dir = {
+          empty_dir {
             medium = "Memory"
           }
         }
@@ -1355,14 +1382,14 @@ resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
@@ -1373,7 +1400,7 @@ resource "kubernetes_deployment" "test" {
 
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
@@ -1395,29 +1422,35 @@ func testAccKubernetesDeploymentConfigWithDeploymentStrategyRollingUpdate(rcName
 resource "kubernetes_deployment" "test" {
   metadata {
     name = "%s"
-    labels {
+
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
+
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
+
     strategy {
       type = "RollingUpdate"
+
       rolling_update {
         max_surge       = "%s"
         max_unavailable = "%s"
       }
     }
+
     template {
       metadata {
-        labels {
+        labels = {
           Test = "TfAcceptanceTest"
         }
       }
+
       spec {
         container {
           image = "%s"
@@ -1434,38 +1467,45 @@ func testAccKubernetesDeploymentConfigHostAliases(name string, imageName string)
 	return fmt.Sprintf(`
 resource "kubernetes_deployment" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       TestAnnotationTwo = "two"
     }
-    labels {
+
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
     }
+
     name = "%s"
   }
+
   spec {
-    replicas = 1 
+    replicas = 1
+
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
       }
     }
+
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
         }
       }
+
       spec {
         container {
           image = "%s"
           name  = "tf-acc-test"
+
           resources {
             requests {
               memory = "64Mi"
@@ -1473,12 +1513,14 @@ resource "kubernetes_deployment" "test" {
             }
           }
         }
+
         host_aliases {
-          ip = "127.0.0.5"
-          hostnames = ["abc.com","contoso.com"]
+          ip        = "127.0.0.5"
+          hostnames = ["abc.com", "contoso.com"]
         }
+
         host_aliases {
-          ip = "127.0.0.6"
+          ip        = "127.0.0.6"
           hostnames = ["xyz.com"]
         }
       }
