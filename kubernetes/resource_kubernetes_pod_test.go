@@ -292,6 +292,33 @@ func TestAccKubernetesPod_with_pod_security_context(t *testing.T) {
 	})
 }
 
+func TestAccKubernetesPod_with_pod_security_context_run_as_group(t *testing.T) {
+	var conf api.Pod
+
+	podName := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+	imageName := "nginx:1.7.9"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t); skipIfUnsupportedSecurityContextRunAsGroup(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckKubernetesPodDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccKubernetesPodConfigWithSecurityContextRunAsGroup(podName, imageName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckKubernetesPodExists("kubernetes_pod.test", &conf),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.fs_group", "100"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_group", "100"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_non_root", "true"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_user", "101"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.supplemental_groups.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.supplemental_groups.988695518", "101"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccKubernetesPod_with_container_liveness_probe_using_exec(t *testing.T) {
 	var conf api.Pod
 
@@ -472,7 +499,7 @@ func TestAccKubernetesPod_with_cfg_map_volume_mount(t *testing.T) {
 	podName := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
 	cfgMap := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
 
-	imageName := "nginx:1.7.9"
+	imageName := "busybox:1.30.1"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -484,11 +511,15 @@ func TestAccKubernetesPod_with_cfg_map_volume_mount(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckKubernetesPodExists("kubernetes_pod.test", &conf),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.image", imageName),
-					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.#", "2"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.mount_path", "/tmp/my_path"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.name", "cfg"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.read_only", "false"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.sub_path", ""),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.mount_path", "/tmp/my_raw_path"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.name", "cfg-binary"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.read_only", "false"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.sub_path", ""),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.name", "cfg"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.config_map.0.name", cfgMap),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.config_map.0.default_mode", "0777")),
@@ -859,6 +890,35 @@ resource "kubernetes_pod" "test" {
 `, podName, imageName)
 }
 
+func testAccKubernetesPodConfigWithSecurityContextRunAsGroup(podName, imageName string) string {
+	return fmt.Sprintf(`
+resource "kubernetes_pod" "test" {
+  metadata {
+    labels = {
+      app = "pod_label"
+    }
+
+    name = "%s"
+  }
+
+  spec {
+    security_context {
+      fs_group            = 100
+      run_as_group        = 100
+      run_as_non_root     = true
+      run_as_user         = 101
+      supplemental_groups = [101]
+    }
+
+    container {
+      image = "%s"
+      name  = "containername"
+    }
+  }
+}
+`, podName, imageName)
+}
+
 func testAccKubernetesPodConfigWithLivenessProbeUsingExec(podName, imageName string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
@@ -1128,6 +1188,10 @@ resource "kubernetes_config_map" "test" {
     name = "%s"
   }
 
+  binary_data = {
+    raw = "${base64encode("Raw data should come back as is in the pod")}"
+  }
+
   data = {
     one = "first"
   }
@@ -1143,13 +1207,30 @@ resource "kubernetes_pod" "test" {
   }
 
   spec {
+    restart_policy = "Never"
+
     container {
       image = "%s"
       name  = "containername"
 
+      args = ["/bin/sh", "-xc", "ls -l /tmp/my_raw_path ; cat /tmp/my_raw_path/raw.txt ; sleep 10"]
+
+      lifecycle {
+        post_start {
+          exec {
+            command = ["/bin/sh", "-xc", "grep 'Raw data should come back as is in the pod' /tmp/my_raw_path/raw.txt"]
+          }
+        }
+      }
+
       volume_mount {
         mount_path = "/tmp/my_path"
         name       = "cfg"
+      }
+
+      volume_mount {
+        mount_path = "/tmp/my_raw_path"
+        name       = "cfg-binary"
       }
     }
 
@@ -1185,6 +1266,19 @@ resource "kubernetes_pod" "test" {
           key  = "one"
           path = "one-with-mode.txt"
           mode = "0444"
+        }
+      }
+    }
+
+    volume {
+      name = "cfg-binary"
+
+      config_map {
+        name = "${kubernetes_config_map.test.metadata.0.name}"
+
+        items {
+          key  = "raw"
+          path = "raw.txt"
         }
       }
     }

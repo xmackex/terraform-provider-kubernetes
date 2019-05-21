@@ -5,15 +5,11 @@ import (
 
 	"fmt"
 
-	// api "k8s.io/api/core/v1"
-	// "k8s.io/apimachinery/pkg/api/errors"
-	// pkgApi "k8s.io/apimachinery/pkg/types"
-
 	"github.com/hashicorp/terraform/helper/schema"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubernetes "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 )
 
 func resourceKubernetesIngress() *schema.Resource {
@@ -61,7 +57,7 @@ func resourceKubernetesIngress() *schema.Resource {
 													Description: "Path array of path regex associated with a backend. Incoming urls matching the path are forwarded to the backend.",
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
-															"path_regex": {
+															"path": {
 																Type:        schema.TypeString,
 																Description: "path.regex is an extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986. Paths must begin with a '/'. If unspecified, the path defaults to a catch all sending traffic to the backend.",
 																Optional:    true,
@@ -123,14 +119,14 @@ func resourceKubernetesIngressCreate(d *schema.ResourceData, meta interface{}) e
 	conn := meta.(*kubernetes.Clientset)
 
 	metadata := expandMetadata(d.Get("metadata").([]interface{}))
-	ing := v1beta1.Ingress{
+	ing := &v1beta1.Ingress{
 		Spec: expandIngressSpec(d.Get("spec").([]interface{})),
 	}
 	ing.ObjectMeta = metadata
 	log.Printf("[INFO] Creating new ingress: %#v", ing)
-	out, err := conn.ExtensionsV1beta1().Ingresses(metadata.Namespace).Create(&ing)
+	out, err := conn.ExtensionsV1beta1().Ingresses(metadata.Namespace).Create(ing)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to create Ingress '%s' because: %s", buildId(ing.ObjectMeta), err)
 	}
 	log.Printf("[INFO] Submitted new ingress: %#v", out)
 	d.SetId(buildId(out.ObjectMeta))
@@ -150,10 +146,10 @@ func resourceKubernetesIngressRead(d *schema.ResourceData, meta interface{}) err
 	ing, err := conn.ExtensionsV1beta1().Ingresses(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
 		log.Printf("[DEBUG] Received error: %#v", err)
-		return err
+		return fmt.Errorf("Failed to read Ingress '%s' because: %s", buildId(ing.ObjectMeta), err)
 	}
 	log.Printf("[INFO] Received ingress: %#v", ing)
-	err = d.Set("metadata", flattenMetadata(ing.ObjectMeta))
+	err = d.Set("metadata", flattenMetadata(ing.ObjectMeta, d))
 	if err != nil {
 		return err
 	}
@@ -195,7 +191,7 @@ func resourceKubernetesIngressUpdate(d *schema.ResourceData, meta interface{}) e
 
 	out, err := conn.ExtensionsV1beta1().Ingresses(namespace).Update(ingress)
 	if err != nil {
-		return fmt.Errorf("Failed to update ingress: %s", err)
+		return fmt.Errorf("Failed to update Ingress %s because: %s", buildId(ingress.ObjectMeta), err)
 	}
 	log.Printf("[INFO] Submitted updated ingress: %#v", out)
 
@@ -213,7 +209,7 @@ func resourceKubernetesIngressDelete(d *schema.ResourceData, meta interface{}) e
 	log.Printf("[INFO] Deleting ingress: %#v", name)
 	err = conn.ExtensionsV1beta1().Ingresses(namespace).Delete(name, &meta_v1.DeleteOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to delete Ingress %s because: %s", d.Id(), err)
 	}
 
 	log.Printf("[INFO] Ingress %s deleted", name)
