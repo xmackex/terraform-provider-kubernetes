@@ -141,7 +141,7 @@ func resourceKubernetesPodDisruptionBudgetRead(d *schema.ResourceData, meta inte
 	}
 
 	log.Printf("[INFO] Received pod disruption budget: %#v", pdb)
-	err = d.Set("metadata", flattenMetadata(pdb.ObjectMeta))
+	err = d.Set("metadata", flattenMetadata(pdb.ObjectMeta, d))
 	if err != nil {
 		return err
 	}
