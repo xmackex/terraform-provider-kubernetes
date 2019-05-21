@@ -48,9 +48,37 @@ The following arguments are supported:
 
 * `access_modes` - (Required) Contains all ways the volume can be mounted. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/persistent-volumes#access-modes)
 * `capacity` - (Required) A description of the persistent volume's resources and capacity. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/persistent-volumes#capacity)
+* `node_affinity` - (Optional) NodeAffinity defines constraints that limit what nodes this volume can be accessed from. This field influences the scheduling of pods that use this volume.
 * `persistent_volume_reclaim_policy` - (Optional) What happens to a persistent volume when released from its claim. Valid options are Retain (default) and Recycle. Recycling must be supported by the volume plugin underlying this persistent volume. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/persistent-volumes#recycling-policy)
 * `persistent_volume_source` - (Required) The specification of a persistent volume.
 * `storage_class_name` - (Optional) The name of the persistent volume's storage class. For more info see [Kubernetes reference](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class)
+
+### `node_affinity`
+
+#### Arguments
+
+* `required` - (Optional) Required specifies hard node constraints that must be met.
+
+### `required`
+
+#### Arguments
+
+* `node_selector_term` - (Required) A list of node selector terms. The terms are ORed.
+
+### `node_selector_term`
+
+#### Arguments
+
+* `match_expressions` - (Optional) A list of node selector requirements by node's labels.
+* `match_fields` - (Optional) A list of node selector requirements by node's fields.
+
+### `match_expressions` and `match_fields`
+
+#### Arguments
+
+* `key` - (Required) The label key that the selector applies to.
+* `operator` - (Required) Represents a key's relationship to a set of values. Valid operators are `In`, `NotIn`, `Exists`, `DoesNotExist`. `Gt`, and `Lt`.
+* `values` - (Optional) An array of string values. If the operator is `In` or `NotIn`, the values array must be non-empty. If the operator is `Exists` or `DoesNotExist`, the values array must be empty. If the operator is `Gt` or `Lt`, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
 
 ### `persistent_volume_source`
 
@@ -185,12 +213,15 @@ The following arguments are supported:
 
 #### Arguments
 
-* `annotations` - (Optional) An unstructured key value map stored with the persistent volume that may be used to store arbitrary metadata. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/annotations)
-* `labels` - (Optional) Map of string keys and values that can be used to organize and categorize (scope and select) the persistent volume. May match selectors of replication controllers and services. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/labels)
+* `annotations` - (Optional) An unstructured key value map stored with the persistent volume that may be used to store arbitrary metadata. 
+**By default, the provider ignores any annotations whose key names end with *kubernetes.io*. This is necessary because such annotations can be mutated by server-side components and consequently cause a perpetual diff in the Terraform plan output. If you explicitly specify any such annotations in the configuration template then Terraform will consider these as normal resource attributes and manage them as expected (while still avoiding the perpetual diff problem).**
+For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/annotations)
+* `labels` - (Optional) Map of string keys and values that can be used to organize and categorize (scope and select) the persistent volume. May match selectors of replication controllers and services. 
+**By default, the provider ignores any labels whose key names end with *kubernetes.io*. This is necessary because such labels can be mutated by server-side components and consequently cause a perpetual diff in the Terraform plan output. If you explicitly specify any such labels in the configuration template then Terraform will consider these as normal resource attributes and manage them as expected (while still avoiding the perpetual diff problem).**
+For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/labels)
 * `name` - (Optional) Name of the persistent volume, must be unique. Cannot be updated. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/identifiers#names)
 
 #### Attributes
-
 
 * `generation` - A sequence number representing a specific generation of the desired state.
 * `resource_version` - An opaque value that represents the internal version of this persistent volume that can be used by clients to determine when persistent volume has changed. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/e59e666e3464c7d4851136baa8835a311efdfb8e/contributors/devel/api-conventions.md#concurrency-control-and-consistency)

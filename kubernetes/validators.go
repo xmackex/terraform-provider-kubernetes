@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -20,11 +21,39 @@ func validateAnnotations(value interface{}, key string) (ws []string, es []error
 				es = append(es, fmt.Errorf("%s (%q) %s", key, k, e))
 			}
 		}
+	}
+	return
+}
 
-		if isInternalKey(k) {
-			es = append(es, fmt.Errorf("%s: %q is internal Kubernetes annotation", key, k))
+func validateBase64Encoded(v interface{}, key string) (ws []string, es []error) {
+	s, ok := v.(string)
+	if !ok {
+		es = []error{fmt.Errorf("%s: must be a non-nil base64-encoded string", key)}
+		return
+	}
+
+	_, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		es = []error{fmt.Errorf("%s: must be a base64-encoded string", key)}
+		return
+	}
+	return
+}
+
+func validateBase64EncodedMap(value interface{}, key string) (ws []string, es []error) {
+	m, ok := value.(map[string]interface{})
+	if !ok {
+		es = []error{fmt.Errorf("%s: must be a map of strings to base64 encoded strings", key)}
+		return
+	}
+
+	for k, v := range m {
+		_, errs := validateBase64Encoded(v, k)
+		for _, e := range errs {
+			es = append(es, fmt.Errorf("%s (%q) %s", k, v, e))
 		}
 	}
+
 	return
 }
 
@@ -172,7 +201,13 @@ func validateTerminationGracePeriodSeconds(value interface{}, key string) (ws []
 }
 
 func validateModeBits(value interface{}, key string) (ws []string, es []error) {
-	v := value.(int)
+	if !strings.HasPrefix(value.(string), "0") {
+		es = append(es, fmt.Errorf("%s: value %s should start with '0' (octal numeral)", key, value.(string)))
+	}
+	v, err := strconv.ParseInt(value.(string), 8, 32)
+	if err != nil {
+		es = append(es, fmt.Errorf("%s :Cannot parse octal numeral (%#v): %s", key, value, err))
+	}
 	if v < 0 || v > 0777 {
 		es = append(es, fmt.Errorf("%s (%#o) expects octal notation (a value between 0 and 0777)", key, v))
 	}

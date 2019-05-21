@@ -88,6 +88,19 @@ func TestAccKubernetesDaemonSet_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("kubernetes_daemonset.test", "metadata.0.uid"),
 					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.container.0.image", "nginx:1.7.9"),
 					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.container.0.name", "tf-acc-test"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.nameservers.#", "3"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.nameservers.0", "1.1.1.1"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.nameservers.1", "8.8.8.8"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.nameservers.2", "9.9.9.9"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.searches.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.searches.0", "kubernetes.io"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.option.#", "2"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.option.0.name", "ndots"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.option.0.value", "1"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.option.1.name", "use-vc"),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_config.0.option.1.value", ""),
+					resource.TestCheckResourceAttr("kubernetes_daemonset.test", "spec.0.template.0.spec.0.dns_policy", "Default"),
 				),
 			},
 		},
@@ -252,14 +265,14 @@ resource "kubernetes_daemonset" "test" {
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         foo = "bar"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           foo = "bar"
         }
       }
@@ -280,12 +293,12 @@ func testAccKubernetesDaemonSetConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_daemonset" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       TestAnnotationTwo = "two"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
@@ -296,7 +309,7 @@ resource "kubernetes_daemonset" "test" {
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
@@ -305,7 +318,7 @@ resource "kubernetes_daemonset" "test" {
 
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
@@ -328,12 +341,12 @@ func testAccKubernetesDaemonSetConfig_modified(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_daemonset" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       Different         = "1234"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelThree = "three"
     }
@@ -343,27 +356,43 @@ resource "kubernetes_daemonset" "test" {
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         TestLabelOne   = "one"
         TestLabelTwo   = "two"
         TestLabelThree = "three"
       }
     }
-    
+
     template {
       metadata {
-        labels {
+        labels = {
           TestLabelOne   = "one"
           TestLabelTwo   = "two"
           TestLabelThree = "three"
         }
       }
-    
+
       spec {
         container {
           image = "nginx:1.7.9"
           name  = "tf-acc-test"
         }
+
+        dns_config {
+          nameservers = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
+          searches    = ["kubernetes.io"]
+
+          option {
+            name  = "ndots"
+            value = 1
+          }
+
+          option {
+            name = "use-vc"
+          }
+        }
+
+        dns_policy = "Default"
       }
     }
   }
@@ -377,26 +406,26 @@ resource "kubernetes_daemonset" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           foo  = "bar"
           Test = "TfAcceptanceTest"
         }
 
-        annotations {
+        annotations = {
           "prometheus.io/scrape" = "true"
           "prometheus.io/scheme" = "https"
           "prometheus.io/port"   = "4000"
@@ -421,26 +450,26 @@ resource "kubernetes_daemonset" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       Test = "TfAcceptanceTest"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         Test = "TfAcceptanceTest"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels ={
           foo  = "bar"
           Test = "TfAcceptanceTest"
         }
 
-        annotations {
+        annotations = {
           "prometheus.io/scrape" = "true"
           "prometheus.io/scheme" = "http"
           "prometheus.io/port"   = "8080"
@@ -465,21 +494,21 @@ resource "kubernetes_daemonset" "test" {
   metadata {
     name = "%s"
 
-    labels {
+    labels = {
       foo = "bar"
     }
   }
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         foo = "bar"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           foo = "bar"
         }
       }
@@ -511,14 +540,14 @@ resource "kubernetes_daemonset" "test" {
 
   spec {
     selector {
-      match_labels {
+      match_labels = {
         foo = "bar"
       }
     }
 
     template {
       metadata {
-        labels {
+        labels = {
           foo = "bar"
         }
       }

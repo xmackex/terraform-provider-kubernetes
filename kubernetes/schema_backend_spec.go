@@ -6,7 +6,7 @@ const defaultBackendDescription = `A default backend capable of servicing reques
 const ruleBackedDescription = `Backend defines the referenced service endpoint to which the traffic will be forwarded to.`
 
 func backendSpecFields(description string) *schema.Schema {
-	return &schema.Schema{
+	s := &schema.Schema{
 		Type:        schema.TypeList,
 		Description: description,
 		MaxItems:    1,
@@ -27,4 +27,6 @@ func backendSpecFields(description string) *schema.Schema {
 			},
 		},
 	}
+
+	return s
 }

@@ -137,6 +137,39 @@ func TestAccKubernetesConfigMap_importBasic(t *testing.T) {
 	})
 }
 
+func TestAccKubernetesConfigMap_binaryData(t *testing.T) {
+	var conf api.ConfigMap
+	prefix := "tf-acc-test-gen-"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:      func() { testAccPreCheck(t) },
+		IDRefreshName: "kubernetes_config_map.test",
+		Providers:     testAccProviders,
+		CheckDestroy:  testAccCheckKubernetesConfigMapDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccKubernetesConfigMapConfig_binaryData(prefix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckKubernetesConfigMapExists("kubernetes_config_map.test", &conf),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "binary_data.%", "1"),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "data.%", "1"),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "data.two", "second"),
+				),
+			},
+			{
+				Config: testAccKubernetesConfigMapConfig_binaryData2(prefix),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckKubernetesConfigMapExists("kubernetes_config_map.test", &conf),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "binary_data.%", "3"),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "binary_data.raw", "UmF3IGRhdGEgc2hvdWxkIGNvbWUgYmFjayBhcyBpcyBpbiB0aGUgcG9k"),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "data.%", "1"),
+					resource.TestCheckResourceAttr("kubernetes_config_map.test", "data.three", "third"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccKubernetesConfigMap_generatedName(t *testing.T) {
 	var conf api.ConfigMap
 	prefix := "tf-acc-test-gen-"
@@ -250,12 +283,12 @@ func testAccKubernetesConfigMapConfig_nodata(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_config_map" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       TestAnnotationTwo = "two"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
@@ -264,7 +297,7 @@ resource "kubernetes_config_map" "test" {
     name = "%s"
   }
 
-  data {}
+  data = {}
 }
 `, name)
 }
@@ -273,12 +306,12 @@ func testAccKubernetesConfigMapConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_config_map" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       TestAnnotationTwo = "two"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelTwo   = "two"
       TestLabelThree = "three"
@@ -287,7 +320,7 @@ resource "kubernetes_config_map" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one = "first"
     two = "second"
   }
@@ -299,12 +332,12 @@ func testAccKubernetesConfigMapConfig_modified(name string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_config_map" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
       Different         = "1234"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelThree = "three"
     }
@@ -312,7 +345,7 @@ resource "kubernetes_config_map" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one  = "first"
     two  = "second"
     nine = "ninth"
@@ -338,9 +371,47 @@ resource "kubernetes_config_map" "test" {
     generate_name = "%s"
   }
 
-  data {
+  data = {
     one = "first"
     two = "second"
+  }
+}
+`, prefix)
+}
+
+func testAccKubernetesConfigMapConfig_binaryData(prefix string) string {
+	return fmt.Sprintf(`
+resource "kubernetes_config_map" "test" {
+  metadata {
+    generate_name = "%s"
+  }
+
+  binary_data = {
+    one = "${filebase64("./test-fixtures/binary.data")}"
+  }
+
+  data = {
+    two = "second"
+  }
+}
+`, prefix)
+}
+
+func testAccKubernetesConfigMapConfig_binaryData2(prefix string) string {
+	return fmt.Sprintf(`
+resource "kubernetes_config_map" "test" {
+  metadata {
+    generate_name = "%s"
+  }
+
+  binary_data = {
+    one = "${filebase64("./test-fixtures/binary.data")}"
+    two = "${filebase64("./test-fixtures/binary2.data")}"
+    raw = "${base64encode("Raw data should come back as is in the pod")}"
+  }
+
+  data = {
+    three = "third"
   }
 }
 `, prefix)

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	gversion "github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform/config"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
@@ -39,6 +40,11 @@ func TestProvider_impl(t *testing.T) {
 }
 
 func TestProvider_configure(t *testing.T) {
+	if os.Getenv("TF_ACC") != "" {
+		t.Skip("The environment variable TF_ACC is set, and this test prevents acceptance tests" +
+			" from running as it alters environment variables - skipping")
+	}
+
 	resetEnv := unsetEnv(t)
 	defer resetEnv()
 
@@ -198,12 +204,15 @@ func skipIfNoAwsSettingsFound(t *testing.T) {
 }
 
 func skipIfNoLoadBalancersAvailable(t *testing.T) {
-	// TODO: Support AWS ELBs
 	isInGke, err := isRunningInGke()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isInGke {
+	isInEks, err := isRunningInEks()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isInGke && !isInEks {
 		t.Skip("The Kubernetes endpoint must come from an environment which supports " +
 			"load balancer provisioning for this test to run - skipping")
 	}
@@ -216,6 +225,28 @@ func skipIfNotRunningInGke(t *testing.T) {
 	}
 	if !isInGke {
 		t.Skip("The Kubernetes endpoint must come from GKE for this test to run - skipping")
+	}
+}
+
+func skipIfUnsupportedSecurityContextRunAsGroup(t *testing.T) {
+	meta := testAccProvider.Meta()
+	if meta == nil {
+		t.Fatal("Provider not initialized, unable to check cluster capabilities")
+	}
+	conn := meta.(*kubernetes.Clientset)
+	serverVersion, err := conn.ServerVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	k8sVersion, err := gversion.NewVersion(serverVersion.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v1_14_0, _ := gversion.NewVersion("1.14.0")
+	if k8sVersion.LessThan(v1_14_0) {
+		t.Skip("The Kubernetes version must be 1.14.0 or newer for this test to run - skipping")
 	}
 }
 
@@ -240,6 +271,19 @@ func isRunningInGke() (bool, error) {
 
 	labels := node.GetLabels()
 	if _, ok := labels["cloud.google.com/gke-nodepool"]; ok {
+		return true, nil
+	}
+	return false, nil
+}
+
+func isRunningInEks() (bool, error) {
+	node, err := getFirstNode()
+	if err != nil {
+		return false, err
+	}
+
+	labels := node.GetLabels()
+	if _, ok := labels["failure-domain.beta.kubernetes.io/region"]; ok {
 		return true, nil
 	}
 	return false, nil

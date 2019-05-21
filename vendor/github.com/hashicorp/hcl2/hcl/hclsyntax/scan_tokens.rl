@@ -9,7 +9,7 @@ import (
 
 // This file is generated from scan_tokens.rl. DO NOT EDIT.
 %%{
-  # (except you are actually in scan_tokens.rl here, so edit away!)
+  # (except when you are actually in scan_tokens.rl here, so edit away!)
 
   machine hcltok;
   write data;
@@ -44,7 +44,7 @@ func scanTokens(data []byte, filename string, start hcl.Pos, mode scanMode) []To
         Ident = (ID_Start | '_') (ID_Continue | '-')*;
 
         # Symbols that just represent themselves are handled as a single rule.
-        SelfToken = "[" | "]" | "(" | ")" | "." | "," | "*" | "/" | "%" | "+" | "-" | "=" | "<" | ">" | "!" | "?" | ":" | "\n" | "&" | "|" | "~" | "^" | ";" | "`";
+        SelfToken = "[" | "]" | "(" | ")" | "." | "," | "*" | "/" | "%" | "+" | "-" | "=" | "<" | ">" | "!" | "?" | ":" | "\n" | "&" | "|" | "~" | "^" | ";" | "`" | "'";
 
         EqualOp = "==";
         NotEqual = "!=";
@@ -218,29 +218,35 @@ func scanTokens(data []byte, filename string, start hcl.Pos, mode scanMode) []To
         TemplateInterp = "${" ("~")?;
         TemplateControl = "%{" ("~")?;
         EndStringTmpl = '"';
-        StringLiteralChars = (AnyUTF8 - ("\r"|"\n"));
+        NewlineChars = ("\r"|"\n");
+        NewlineCharsSeq = NewlineChars+;
+        StringLiteralChars = (AnyUTF8 - NewlineChars);
+        TemplateIgnoredNonBrace = (^'{' %{ fhold; });
+        TemplateNotInterp = '$' (TemplateIgnoredNonBrace | TemplateInterp);
+        TemplateNotControl = '%' (TemplateIgnoredNonBrace | TemplateControl);
+        QuotedStringLiteralWithEsc = ('\\' StringLiteralChars) | (StringLiteralChars - ("$" | '%' | '"' | "\\"));
         TemplateStringLiteral = (
-            ('$' ^'{' %{ fhold; }) |
-            ('%' ^'{' %{ fhold; }) |
-            ('\\' StringLiteralChars) |
-            (StringLiteralChars - ("$" | '%' | '"'))
-        )+;
+            (TemplateNotInterp) |
+            (TemplateNotControl) |
+            (QuotedStringLiteralWithEsc)+
+        );
         HeredocStringLiteral = (
-            ('$' ^'{' %{ fhold; }) |
-            ('%' ^'{' %{ fhold; }) |
-            (StringLiteralChars - ("$" | '%'))
-        )*;
+            (TemplateNotInterp) |
+            (TemplateNotControl) |
+            (StringLiteralChars - ("$" | '%'))*
+        );
         BareStringLiteral = (
-            ('$' ^'{') |
-            ('%' ^'{') |
-            (StringLiteralChars - ("$" | '%'))
-        )* Newline?;
+            (TemplateNotInterp) |
+            (TemplateNotControl) |
+            (StringLiteralChars - ("$" | '%'))*
+        ) Newline?;
 
         stringTemplate := |*
             TemplateInterp        => beginTemplateInterp;
             TemplateControl       => beginTemplateControl;
             EndStringTmpl         => endStringTemplate;
             TemplateStringLiteral => { token(TokenQuotedLit); };
+            NewlineCharsSeq       => { token(TokenQuotedNewline); };
             AnyUTF8               => { token(TokenInvalid); };
             BrokenUTF8            => { token(TokenBadUTF8); };
         *|;

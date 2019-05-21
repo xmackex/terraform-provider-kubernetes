@@ -106,7 +106,7 @@ func resourceKubernetesDaemonSet() *schema.Resource {
 							Required:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{
-								Schema: podTemplateFields(true),
+								Schema: podTemplateFields("daemon set"),
 							},
 						},
 					},
@@ -206,7 +206,7 @@ func resourceKubernetesDaemonSetRead(d *schema.ResourceData, meta interface{}) e
 	}
 	log.Printf("[INFO] Received daemonset: %#v", daemonset)
 
-	err = d.Set("metadata", flattenMetadata(daemonset.ObjectMeta))
+	err = d.Set("metadata", flattenMetadata(daemonset.ObjectMeta, d))
 	if err != nil {
 		return err
 	}

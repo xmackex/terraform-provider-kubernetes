@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform/terraform"
 	api "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubernetes "k8s.io/client-go/kubernetes"
 )
 
 func TestAccKubernetesIngress_basic(t *testing.T) {
@@ -34,6 +35,13 @@ func TestAccKubernetesIngress_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.backend.#", "1"),
 					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.backend.0.service_name", "app1"),
 					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.backend.0.service_port", "443"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.0.host", "server.domain.com"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.0.http.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.0.http.0.path.0.path", "/.*"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.0.http.0.path.0.backend.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.0.http.0.path.0.backend.0.service_name", "app2"),
+					resource.TestCheckResourceAttr("kubernetes_ingress.test", "spec.0.rule.0.http.0.path.0.backend.0.service_port", "80"),
 				),
 			},
 			{
@@ -99,7 +107,6 @@ func TestAccKubernetesIngress_TLS(t *testing.T) {
 		},
 	})
 }
-
 func TestAccKubernetesIngress_InternalKey(t *testing.T) {
 	var conf api.Ingress
 	name := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
@@ -142,7 +149,7 @@ func TestAccKubernetesIngress_InternalKey(t *testing.T) {
 }
 
 func testAccCheckKubernetesIngressDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().(*kubernetesProvider).conn
+	conn := testAccProvider.Meta().(*kubernetes.Clientset)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "kubernetes_ingress" {
@@ -172,7 +179,7 @@ func testAccCheckKubernetesIngressExists(n string, obj *api.Ingress) resource.Te
 			return fmt.Errorf("Not found: %s", n)
 		}
 
-		conn := testAccProvider.Meta().(*kubernetesProvider).conn
+		conn := testAccProvider.Meta().(*kubernetes.Clientset)
 
 		namespace, name, err := idParts(rs.Primary.ID)
 		if err != nil {
@@ -208,7 +215,7 @@ resource "kubernetes_ingress" "test" {
 						service_name = "app2"
 						service_port = 80
 					}
-					path_regex = "/.*"
+					path = "/.*"
 				}
 			}
 		}
@@ -274,12 +281,11 @@ func testAccKubernetesIngressConfig_internalKey(name string) string {
 resource "kubernetes_ingress" "test" {
 	metadata {
 		name = "%s"
-		
-		annotations {
+		annotations = {
 			"kubernetes.io/ingress-anno" = "one"
 			TestAnnotationTwo = "two"
 		}
-		labels {
+		labels = {
 			"kubernetes.io/ingress-label" = "one"
 			TestLabelTwo = "two"
 			TestLabelThree = "three"
@@ -303,11 +309,10 @@ func testAccKubernetesIngressConfig_internalKey_removed(name string) string {
 resource "kubernetes_ingress" "test" {
 	metadata {
 		name = "%s"
-		
-		annotations {
+		annotations = {
 			TestAnnotationTwo = "two"
 		}
-		labels {
+		labels = {
 			TestLabelTwo = "two"
 			TestLabelThree = "three"
 		}

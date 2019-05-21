@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/helper/validation"
 )
 
 func podSpecFields(isUpdatable, isDeprecated, isComputed bool) map[string]*schema.Schema {
@@ -44,15 +45,85 @@ func podSpecFields(isUpdatable, isDeprecated, isComputed bool) map[string]*schem
 			Optional:    true,
 			Computed:    isComputed,
 			Default:     defaultIfNotComputed(isComputed, "ClusterFirst"),
-			Description: "Set DNS policy for containers within the pod. One of 'ClusterFirst' or 'Default'. Defaults to 'ClusterFirst'.",
+			Description: "Set DNS policy for containers within the pod. Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to 'ClusterFirstWithHostNet'. Optional: Defaults to 'ClusterFirst', see [Kubernetes reference](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy).",
 			Deprecated:  deprecatedMessage,
+		},
+		"dns_config": {
+			Type:        schema.TypeList,
+			Optional:    true,
+			MaxItems:    1,
+			Description: "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy. Optional: Defaults to empty",
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"nameservers": {
+						Type:        schema.TypeList,
+						Description: "A list of DNS name server IP addresses. This will be appended to the base nameservers generated from DNSPolicy. Duplicated nameservers will be removed.",
+						Optional:    true,
+						Elem: &schema.Schema{
+							Type:         schema.TypeString,
+							ValidateFunc: validation.SingleIP(),
+						},
+					},
+					"option": {
+						Type:        schema.TypeList,
+						Description: "A list of DNS resolver options. This will be merged with the base options generated from DNSPolicy. Duplicated entries will be removed. Resolution options given in Options will override those that appear in the base DNSPolicy.",
+						Optional:    true,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"name": {
+									Type:        schema.TypeString,
+									Description: "Name of the option.",
+									Required:    true,
+								},
+								"value": {
+									Type:        schema.TypeString,
+									Description: "Value of the option. Optional: Defaults to empty.",
+									Optional:    true,
+								},
+							},
+						},
+					},
+					"searches": {
+						Type:        schema.TypeList,
+						Description: "A list of DNS search domains for host-name lookup. This will be appended to the base search paths generated from DNSPolicy. Duplicated search paths will be removed.",
+						Optional:    true,
+						Elem: &schema.Schema{
+							Type:         schema.TypeString,
+							ValidateFunc: validateName,
+						},
+					},
+				},
+			},
+		},
+		"host_aliases": {
+			Type:        schema.TypeList,
+			Optional:    true,
+			ForceNew:    true,
+			Computed:    isComputed,
+			Description: "List of hosts and IPs that will be injected into the pod's hosts file if specified. Optional: Defaults to empty.",
+			Deprecated:  deprecatedMessage,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"hostnames": {
+						Type:        schema.TypeList,
+						Required:    true,
+						Description: "Hostnames for the IP address.",
+						Elem:        &schema.Schema{Type: schema.TypeString},
+					},
+					"ip": {
+						Type:        schema.TypeString,
+						Required:    true,
+						Description: "IP address of the host file entry.",
+					},
+				},
+			},
 		},
 		"host_ipc": {
 			Type:        schema.TypeBool,
 			Optional:    true,
 			Computed:    isComputed,
 			Default:     defaultIfNotComputed(isComputed, false),
-			Description: "Use the host's ipc namespace. Optional: Default to false.",
+			Description: "Use the host's ipc namespace. Optional: Defaults to false.",
 			Deprecated:  deprecatedMessage,
 		},
 		"host_network": {
@@ -130,6 +201,11 @@ func podSpecFields(isUpdatable, isDeprecated, isComputed bool) map[string]*schem
 					"fs_group": {
 						Type:        schema.TypeInt,
 						Description: "A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to change the ownership of that volume to be owned by the pod: 1. The owning GID will be the FSGroup 2. The setgid bit is set (new files created in the volume will be owned by FSGroup) 3. The permission bits are OR'd with rw-rw---- If unset, the Kubelet will not modify the ownership and permissions of any volume.",
+						Optional:    true,
+					},
+					"run_as_group": {
+						Type:        schema.TypeInt,
+						Description: "The GID to run the entrypoint of the container process. Uses runtime default if unset. May also be set in SecurityContext. If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container.",
 						Optional:    true,
 					},
 					"run_as_non_root": {
@@ -242,9 +318,10 @@ func volumeSchema() *schema.Resource {
 								Description: "The key to project.",
 							},
 							"mode": {
-								Type:        schema.TypeInt,
-								Optional:    true,
-								Description: `Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.`,
+								Type:         schema.TypeString,
+								Optional:     true,
+								Description:  `Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.`,
+								ValidateFunc: validateModeBits,
 							},
 							"path": {
 								Type:         schema.TypeString,
@@ -256,9 +333,10 @@ func volumeSchema() *schema.Resource {
 					},
 				},
 				"default_mode": {
-					Type:         schema.TypeInt,
+					Type:         schema.TypeString,
 					Description:  "Optional: mode bits to use on created files by default. Must be a value between 0 and 0777. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
 					Optional:     true,
+					Default:      "0644",
 					ValidateFunc: validateModeBits,
 				},
 				"name": {
@@ -304,9 +382,11 @@ func volumeSchema() *schema.Resource {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"default_mode": {
-					Type:        schema.TypeInt,
-					Description: "Optional: mode bits to use on created files by default. Must be a value between 0 and 0777. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
-					Optional:    true,
+					Type:         schema.TypeString,
+					Description:  "Optional: mode bits to use on created files by default. Must be a value between 0 and 0777. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
+					Optional:     true,
+					Default:      "0644",
+					ValidateFunc: validateModeBits,
 				},
 				"items": {
 					Type:        schema.TypeList,
@@ -336,9 +416,10 @@ func volumeSchema() *schema.Resource {
 								},
 							},
 							"mode": {
-								Type:        schema.TypeInt,
-								Optional:    true,
-								Description: `Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.`,
+								Type:         schema.TypeString,
+								Optional:     true,
+								Description:  `Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.`,
+								ValidateFunc: validateModeBits,
 							},
 							"path": {
 								Type:         schema.TypeString,
@@ -424,10 +505,10 @@ func volumeSchema() *schema.Resource {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"default_mode": {
-					Type:         schema.TypeInt,
+					Type:         schema.TypeString,
 					Description:  "Optional: mode bits to use on created files by default. Must be a value between 0 and 0777. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
 					Optional:     true,
-					Default:      0644,
+					Default:      "0644",
 					ValidateFunc: validateModeBits,
 				},
 				"items": {
@@ -442,9 +523,10 @@ func volumeSchema() *schema.Resource {
 								Description: "The key to project.",
 							},
 							"mode": {
-								Type:        schema.TypeInt,
-								Optional:    true,
-								Description: "Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
+								Type:         schema.TypeString,
+								Optional:     true,
+								Description:  "Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
+								ValidateFunc: validateModeBits,
 							},
 							"path": {
 								Type:         schema.TypeString,

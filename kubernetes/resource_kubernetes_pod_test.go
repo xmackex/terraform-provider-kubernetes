@@ -97,6 +97,19 @@ func TestAccKubernetesPod_initContainer_updateForcesNew(t *testing.T) {
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.init_container.0.command.3", "http://kubernetes.io"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.init_container.0.volume_mount.0.name", "workdir"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.init_container.0.volume_mount.0.mount_path", "/work-dir"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.nameservers.#", "3"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.nameservers.0", "1.1.1.1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.nameservers.1", "8.8.8.8"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.nameservers.2", "9.9.9.9"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.searches.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.searches.0", "kubernetes.io"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.option.#", "2"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.option.0.name", "ndots"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.option.0.value", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.option.1.name", "use-vc"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_config.0.option.1.value", ""),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.dns_policy", "Default"),
 				),
 			},
 			{
@@ -269,6 +282,33 @@ func TestAccKubernetesPod_with_pod_security_context(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckKubernetesPodExists("kubernetes_pod.test", &conf),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.fs_group", "100"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_non_root", "true"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_user", "101"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.supplemental_groups.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.supplemental_groups.988695518", "101"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccKubernetesPod_with_pod_security_context_run_as_group(t *testing.T) {
+	var conf api.Pod
+
+	podName := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+	imageName := "nginx:1.7.9"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t); skipIfUnsupportedSecurityContextRunAsGroup(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckKubernetesPodDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccKubernetesPodConfigWithSecurityContextRunAsGroup(podName, imageName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckKubernetesPodExists("kubernetes_pod.test", &conf),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.fs_group", "100"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_group", "100"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_non_root", "true"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.run_as_user", "101"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.security_context.0.supplemental_groups.#", "1"),
@@ -459,7 +499,7 @@ func TestAccKubernetesPod_with_cfg_map_volume_mount(t *testing.T) {
 	podName := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
 	cfgMap := fmt.Sprintf("tf-acc-test-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
 
-	imageName := "nginx:1.7.9"
+	imageName := "busybox:1.30.1"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -471,15 +511,18 @@ func TestAccKubernetesPod_with_cfg_map_volume_mount(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckKubernetesPodExists("kubernetes_pod.test", &conf),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.image", imageName),
-					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.#", "1"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.#", "2"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.mount_path", "/tmp/my_path"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.name", "cfg"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.read_only", "false"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.0.sub_path", ""),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.mount_path", "/tmp/my_raw_path"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.name", "cfg-binary"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.read_only", "false"),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.container.0.volume_mount.1.sub_path", ""),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.name", "cfg"),
 					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.config_map.0.name", cfgMap),
-					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.config_map.0.default_mode", "511"), // 0777 in decimal
-				),
+					resource.TestCheckResourceAttr("kubernetes_pod.test", "spec.0.volume.0.config_map.0.default_mode", "0777")),
 			},
 		},
 	})
@@ -658,7 +701,7 @@ resource "kubernetes_secret" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one = "first"
   }
 }
@@ -668,7 +711,7 @@ resource "kubernetes_secret" "test_from" {
     name = "%s-from"
   }
 
-  data {
+  data = {
     one    = "first_from"
     second = "second_from"
   }
@@ -679,7 +722,7 @@ resource "kubernetes_config_map" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one = "ONE"
   }
 }
@@ -689,7 +732,7 @@ resource "kubernetes_config_map" "test_from" {
     name = "%s-from"
   }
 
-  data {
+  data = {
     one = "ONE_FROM"
     two = "TWO_FROM"
   }
@@ -697,7 +740,7 @@ resource "kubernetes_config_map" "test_from" {
 
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -709,7 +752,7 @@ resource "kubernetes_pod" "test" {
       image = "%s"
       name  = "containername"
 
-      env = [{
+      env {
         name = "EXPORTED_VARIBALE_FROM_SECRET"
 
         value_from {
@@ -718,42 +761,37 @@ resource "kubernetes_pod" "test" {
             key  = "one"
           }
         }
-      },
-        {
-          name = "EXPORTED_VARIBALE_FROM_CONFIG_MAP"
+      }
+      env {
+        name = "EXPORTED_VARIBALE_FROM_CONFIG_MAP"
+				value_from {
+					config_map_key_ref {
+						name = "${kubernetes_config_map.test.metadata.0.name}"
+						key  = "one"
+					}
+				}
+			}
 
-          value_from {
-            config_map_key_ref {
-              name = "${kubernetes_config_map.test.metadata.0.name}"
-              key  = "one"
-            }
-          }
-        },
-      ]
-
-      env_from = [{
+      env_from {
         config_map_ref {
           name     = "${kubernetes_config_map.test_from.metadata.0.name}"
           optional = true
         }
-
         prefix = "FROM_CM_"
-      },
-        {
-          secret_ref {
-            name     = "${kubernetes_secret.test_from.metadata.0.name}"
-            optional = false
-          }
-
-          prefix = "FROM_S_"
-        },
-      ]
+			}
+      env_from {
+				secret_ref {
+					name     = "${kubernetes_secret.test_from.metadata.0.name}"
+					optional = false
+				}
+				prefix = "FROM_S_"
+			}
     }
 
     volume {
       name = "db"
 
-      secret = {
+      secret {
         secret_name = "${kubernetes_secret.test.metadata.0.name}"
       }
     }
@@ -766,7 +804,7 @@ func testAccKubernetesPodConfigWithInitContainer(podName string, image string) s
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -799,11 +837,25 @@ resource "kubernetes_pod" "test" {
       }
     }
 
+    dns_config {
+      nameservers = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
+      searches    = ["kubernetes.io"]
+
+      option {
+        name  = "ndots"
+        value = 1
+      }
+
+      option {
+        name = "use-vc"
+      }
+    }
+
     dns_policy = "Default"
 
     volume {
       name      = "workdir"
-      empty_dir = {}
+      empty_dir {}
     }
   }
 }
@@ -814,7 +866,7 @@ func testAccKubernetesPodConfigWithSecurityContext(podName, imageName string) st
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -838,11 +890,40 @@ resource "kubernetes_pod" "test" {
 `, podName, imageName)
 }
 
+func testAccKubernetesPodConfigWithSecurityContextRunAsGroup(podName, imageName string) string {
+	return fmt.Sprintf(`
+resource "kubernetes_pod" "test" {
+  metadata {
+    labels = {
+      app = "pod_label"
+    }
+
+    name = "%s"
+  }
+
+  spec {
+    security_context {
+      fs_group            = 100
+      run_as_group        = 100
+      run_as_non_root     = true
+      run_as_user         = 101
+      supplemental_groups = [101]
+    }
+
+    container {
+      image = "%s"
+      name  = "containername"
+    }
+  }
+}
+`, podName, imageName)
+}
+
 func testAccKubernetesPodConfigWithLivenessProbeUsingExec(podName, imageName string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -873,7 +954,7 @@ func testAccKubernetesPodConfigWithLivenessProbeUsingHTTPGet(podName, imageName 
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -910,7 +991,7 @@ func testAccKubernetesPodConfigWithLivenessProbeUsingTCP(podName, imageName stri
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -941,7 +1022,7 @@ func testAccKubernetesPodConfigWithLifeCycle(podName, imageName string) string {
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -977,7 +1058,7 @@ func testAccKubernetesPodConfigWithContainerSecurityContext(podName, imageName s
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -1014,14 +1095,14 @@ resource "kubernetes_secret" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one = "first"
   }
 }
 
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -1058,14 +1139,14 @@ resource "kubernetes_secret" "test" {
     name = "%s"
   }
 
-  data {
+  data = {
     one = "first"
   }
 }
 
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -1107,14 +1188,18 @@ resource "kubernetes_config_map" "test" {
     name = "%s"
   }
 
-  data {
+  binary_data = {
+    raw = "${base64encode("Raw data should come back as is in the pod")}"
+  }
+
+  data = {
     one = "first"
   }
 }
 
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -1122,13 +1207,30 @@ resource "kubernetes_pod" "test" {
   }
 
   spec {
+    restart_policy = "Never"
+
     container {
       image = "%s"
       name  = "containername"
 
+      args = ["/bin/sh", "-xc", "ls -l /tmp/my_raw_path ; cat /tmp/my_raw_path/raw.txt ; sleep 10"]
+
+      lifecycle {
+        post_start {
+          exec {
+            command = ["/bin/sh", "-xc", "grep 'Raw data should come back as is in the pod' /tmp/my_raw_path/raw.txt"]
+          }
+        }
+      }
+
       volume_mount {
         mount_path = "/tmp/my_path"
         name       = "cfg"
+      }
+
+      volume_mount {
+        mount_path = "/tmp/my_raw_path"
+        name       = "cfg-binary"
       }
     }
 
@@ -1137,7 +1239,7 @@ resource "kubernetes_pod" "test" {
 
       config_map {
         name         = "${kubernetes_config_map.test.metadata.0.name}"
-        default_mode = 0777
+        default_mode = "0777"
       }
     }
 
@@ -1167,6 +1269,19 @@ resource "kubernetes_pod" "test" {
         }
       }
     }
+
+    volume {
+      name = "cfg-binary"
+
+      config_map {
+        name = "${kubernetes_config_map.test.metadata.0.name}"
+
+        items {
+          key  = "raw"
+          path = "raw.txt"
+        }
+      }
+    }
   }
 }
 `, secretName, podName, imageName)
@@ -1176,7 +1291,7 @@ func testAccKubernetesPodConfigWithResourceRequirements(podName, imageName strin
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -1209,7 +1324,7 @@ func testAccKubernetesPodConfigWithEmptyDirVolumes(podName, imageName string) st
 	return fmt.Sprintf(`
 resource "kubernetes_pod" "test" {
   metadata {
-    labels {
+    labels = {
       app = "pod_label"
     }
 
@@ -1230,7 +1345,7 @@ resource "kubernetes_pod" "test" {
     volume {
       name = "cache-volume"
 
-      empty_dir = {
+      empty_dir {
         medium = "Memory"
       }
     }
@@ -1252,7 +1367,7 @@ resource "kubernetes_pod" "test" {
       name  = "containername"
     }
 
-    node_selector {
+    node_selector = {
       "failure-domain.beta.kubernetes.io/region" = "%s"
     }
   }
@@ -1270,7 +1385,7 @@ resource "kubernetes_pod" "test" {
   spec {
     container {
       image = "%s"
-      args = %s
+      args  = %s
       name  = "containername"
     }
   }

@@ -1,10 +1,11 @@
 package kubernetes
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Flatteners
@@ -28,6 +29,15 @@ func flattenPodSpec(in v1.PodSpec) ([]interface{}, error) {
 	att["init_container"] = initContainers
 
 	att["dns_policy"] = in.DNSPolicy
+	if in.DNSConfig != nil {
+		v, err := flattenPodDNSConfig(in.DNSConfig)
+		if err != nil {
+			return []interface{}{att}, err
+		}
+		att["dns_config"] = v
+	}
+
+	att["host_aliases"] = flattenHostaliases(in.HostAliases)
 
 	att["host_ipc"] = in.HostIPC
 	att["host_network"] = in.HostNetwork
@@ -72,11 +82,53 @@ func flattenPodSpec(in v1.PodSpec) ([]interface{}, error) {
 	return []interface{}{att}, nil
 }
 
+func flattenPodDNSConfig(in *v1.PodDNSConfig) ([]interface{}, error) {
+	att := make(map[string]interface{})
+
+	if len(in.Nameservers) > 0 {
+		att["nameservers"] = in.Nameservers
+	}
+	if len(in.Searches) > 0 {
+		att["searches"] = in.Searches
+	}
+	if len(in.Options) > 0 {
+		v, err := flattenPodDNSConfigOptions(in.Options)
+		if err != nil {
+			return []interface{}{att}, err
+		}
+		att["option"] = v
+	}
+
+	if len(att) > 0 {
+		return []interface{}{att}, nil
+	}
+	return []interface{}{}, nil
+}
+
+func flattenPodDNSConfigOptions(options []v1.PodDNSConfigOption) ([]interface{}, error) {
+	att := make([]interface{}, len(options))
+	for i, v := range options {
+		obj := map[string]interface{}{}
+
+		if v.Name != "" {
+			obj["name"] = v.Name
+		}
+		if v.Value != nil {
+			obj["value"] = *v.Value
+		}
+		att[i] = obj
+	}
+	return att, nil
+}
+
 func flattenPodSecurityContext(in *v1.PodSecurityContext) []interface{} {
 	att := make(map[string]interface{})
 
 	if in.FSGroup != nil {
 		att["fs_group"] = *in.FSGroup
+	}
+	if in.RunAsGroup != nil {
+		att["run_as_group"] = *in.RunAsGroup
 	}
 	if in.RunAsNonRoot != nil {
 		att["run_as_non_root"] = *in.RunAsNonRoot
@@ -226,7 +278,7 @@ func flattenGitRepoVolumeSource(in *v1.GitRepoVolumeSource) []interface{} {
 func flattenDownwardAPIVolumeSource(in *v1.DownwardAPIVolumeSource) []interface{} {
 	att := make(map[string]interface{})
 	if in.DefaultMode != nil {
-		att["default_mode"] = in.DefaultMode
+		att["default_mode"] = "0" + strconv.FormatInt(int64(*in.DefaultMode), 8)
 	}
 	if len(in.Items) > 0 {
 		att["items"] = flattenDownwardAPIVolumeFile(in.Items)
@@ -242,7 +294,7 @@ func flattenDownwardAPIVolumeFile(in []v1.DownwardAPIVolumeFile) []interface{} {
 			m["field_ref"] = flattenObjectFieldSelector(v.FieldRef)
 		}
 		if v.Mode != nil {
-			m["mode"] = *v.Mode
+			m["mode"] = "0" + strconv.FormatInt(int64(*v.Mode), 8)
 		}
 		if v.Path != "" {
 			m["path"] = v.Path
@@ -258,18 +310,22 @@ func flattenDownwardAPIVolumeFile(in []v1.DownwardAPIVolumeFile) []interface{} {
 func flattenConfigMapVolumeSource(in *v1.ConfigMapVolumeSource) []interface{} {
 	att := make(map[string]interface{})
 	if in.DefaultMode != nil {
-		att["default_mode"] = *in.DefaultMode
+		att["default_mode"] = "0" + strconv.FormatInt(int64(*in.DefaultMode), 8)
 	}
 	att["name"] = in.Name
 	if len(in.Items) > 0 {
 		items := make([]interface{}, len(in.Items))
 		for i, v := range in.Items {
 			m := map[string]interface{}{}
-			m["key"] = v.Key
-			if v.Mode != nil {
-				m["mode"] = *v.Mode
+			if v.Key != "" {
+				m["key"] = v.Key
 			}
-			m["path"] = v.Path
+			if v.Mode != nil {
+				m["mode"] = "0" + strconv.FormatInt(int64(*v.Mode), 8)
+			}
+			if v.Path != "" {
+				m["path"] = v.Path
+			}
 			items[i] = m
 		}
 		att["items"] = items
@@ -287,7 +343,7 @@ func flattenEmptyDirVolumeSource(in *v1.EmptyDirVolumeSource) []interface{} {
 func flattenSecretVolumeSource(in *v1.SecretVolumeSource) []interface{} {
 	att := make(map[string]interface{})
 	if in.DefaultMode != nil {
-		att["default_mode"] = *in.DefaultMode
+		att["default_mode"] = "0" + strconv.FormatInt(int64(*in.DefaultMode), 8)
 	}
 	if in.SecretName != "" {
 		att["secret_name"] = in.SecretName
@@ -298,7 +354,7 @@ func flattenSecretVolumeSource(in *v1.SecretVolumeSource) []interface{} {
 			m := map[string]interface{}{}
 			m["key"] = v.Key
 			if v.Mode != nil {
-				m["mode"] = int(*v.Mode)
+				m["mode"] = "0" + strconv.FormatInt(int64(*v.Mode), 8)
 			}
 			m["path"] = v.Path
 			items[i] = m
@@ -342,6 +398,22 @@ func expandPodSpec(p []interface{}) (*v1.PodSpec, error) {
 
 	if v, ok := in["dns_policy"].(string); ok {
 		obj.DNSPolicy = v1.DNSPolicy(v)
+	}
+
+	if v, ok := in["dns_config"].([]interface{}); ok && len(v) > 0 {
+		dnsConfig, err := expandPodDNSConfig(v)
+		if err != nil {
+			return obj, nil
+		}
+		obj.DNSConfig = dnsConfig
+	}
+
+	if v, ok := in["host_aliases"].([]interface{}); ok && len(v) > 0 {
+		hs, err := expandHostaliases(v)
+		if err != nil {
+			return obj, err
+		}
+		obj.HostAliases = hs
 	}
 
 	if v, ok := in["host_ipc"]; ok {
@@ -409,6 +481,48 @@ func expandPodSpec(p []interface{}) (*v1.PodSpec, error) {
 	return obj, nil
 }
 
+func expandPodDNSConfig(l []interface{}) (*v1.PodDNSConfig, error) {
+	if len(l) == 0 || l[0] == nil {
+		return &v1.PodDNSConfig{}, nil
+	}
+	in := l[0].(map[string]interface{})
+	obj := &v1.PodDNSConfig{}
+	if v, ok := in["nameservers"].([]interface{}); ok {
+		obj.Nameservers = expandStringSlice(v)
+	}
+	if v, ok := in["searches"].([]interface{}); ok {
+		obj.Searches = expandStringSlice(v)
+	}
+	if v, ok := in["option"].([]interface{}); ok {
+		opts, err := expandDNSConfigOptions(v)
+		if err != nil {
+			return obj, err
+		}
+		obj.Options = opts
+	}
+	return obj, nil
+}
+
+func expandDNSConfigOptions(options []interface{}) ([]v1.PodDNSConfigOption, error) {
+	if len(options) == 0 {
+		return []v1.PodDNSConfigOption{}, nil
+	}
+	opts := make([]v1.PodDNSConfigOption, len(options))
+	for i, c := range options {
+		in := c.(map[string]interface{})
+		opt := v1.PodDNSConfigOption{}
+		if v, ok := in["name"].(string); ok {
+			opt.Name = v
+		}
+		if v, ok := in["value"].(string); ok {
+			opt.Value = ptrToString(v)
+		}
+		opts[i] = opt
+	}
+
+	return opts, nil
+}
+
 func expandPodSecurityContext(l []interface{}) *v1.PodSecurityContext {
 	if len(l) == 0 || l[0] == nil {
 		return &v1.PodSecurityContext{}
@@ -417,6 +531,9 @@ func expandPodSecurityContext(l []interface{}) *v1.PodSecurityContext {
 	obj := &v1.PodSecurityContext{}
 	if v, ok := in["fs_group"].(int); ok {
 		obj.FSGroup = ptrToInt64(int64(v))
+	}
+	if v, ok := in["run_as_group"].(int); ok {
+		obj.RunAsGroup = ptrToInt64(int64(v))
 	}
 	if v, ok := in["run_as_non_root"].(bool); ok {
 		obj.RunAsNonRoot = ptrToBool(v)
@@ -465,8 +582,11 @@ func expandKeyPath(in []interface{}) []v1.KeyToPath {
 		if v, ok := p["key"].(string); ok {
 			keyPaths[i].Key = v
 		}
-		if v, ok := p["mode"].(int); ok {
-			keyPaths[i].Mode = ptrToInt32(int32(v))
+		if v, ok := p["mode"].(string); ok {
+			m, err := strconv.ParseInt(v, 8, 32)
+			if err == nil {
+				keyPaths[i].Mode = ptrToInt32(int32(m))
+			}
 		}
 		if v, ok := p["path"].(string); ok {
 			keyPaths[i].Path = v
@@ -484,8 +604,12 @@ func expandDownwardAPIVolumeFile(in []interface{}) ([]v1.DownwardAPIVolumeFile, 
 	dapivf := make([]v1.DownwardAPIVolumeFile, len(in))
 	for i, c := range in {
 		p := c.(map[string]interface{})
-		if v, ok := p["mode"].(int); ok {
-			dapivf[i].Mode = ptrToInt32(int32(v))
+		if v, ok := p["mode"].(string); ok {
+			m, err := strconv.ParseInt(v, 8, 32)
+			if err != nil {
+				return dapivf, fmt.Errorf("DownwardAPI volume file: failed to parse 'mode' value: %s", err)
+			}
+			dapivf[i].Mode = ptrToInt32(int32(m))
 		}
 		if v, ok := p["path"].(string); ok {
 			dapivf[i].Path = v
@@ -506,13 +630,19 @@ func expandDownwardAPIVolumeFile(in []interface{}) ([]v1.DownwardAPIVolumeFile, 
 	return dapivf, nil
 }
 
-func expandConfigMapVolumeSource(l []interface{}) *v1.ConfigMapVolumeSource {
+func expandConfigMapVolumeSource(l []interface{}) (*v1.ConfigMapVolumeSource, error) {
+	obj := &v1.ConfigMapVolumeSource{}
 	if len(l) == 0 || l[0] == nil {
-		return &v1.ConfigMapVolumeSource{}
+		return obj, nil
 	}
 	in := l[0].(map[string]interface{})
-	obj := &v1.ConfigMapVolumeSource{
-		DefaultMode: ptrToInt32(int32(in["default_mode"].(int))),
+
+	if mode, ok := in["default_mode"].(string); ok && len(mode) > 0 {
+		v, err := strconv.ParseInt(mode, 8, 32)
+		if err != nil {
+			return obj, fmt.Errorf("ConfigMap volume: failed to parse 'default_mode' value: %s", err)
+		}
+		obj.DefaultMode = ptrToInt32(int32(v))
 	}
 
 	if v, ok := in["name"].(string); ok {
@@ -523,17 +653,24 @@ func expandConfigMapVolumeSource(l []interface{}) *v1.ConfigMapVolumeSource {
 		obj.Items = expandKeyPath(v)
 	}
 
-	return obj
+	return obj, nil
 }
 
 func expandDownwardAPIVolumeSource(l []interface{}) (*v1.DownwardAPIVolumeSource, error) {
+	obj := &v1.DownwardAPIVolumeSource{}
 	if len(l) == 0 || l[0] == nil {
-		return &v1.DownwardAPIVolumeSource{}, nil
+		return obj, nil
 	}
 	in := l[0].(map[string]interface{})
-	obj := &v1.DownwardAPIVolumeSource{
-		DefaultMode: ptrToInt32(int32(in["default_mode"].(int))),
+
+	if mode, ok := in["default_mode"].(string); ok && len(mode) > 0 {
+		v, err := strconv.ParseInt(mode, 8, 32)
+		if err != nil {
+			return obj, fmt.Errorf("Downward API volume: failed to parse 'default_mode' value: %s", err)
+		}
+		obj.DefaultMode = ptrToInt32(int32(v))
 	}
+
 	if v, ok := in["items"].([]interface{}); ok && len(v) > 0 {
 		var err error
 		obj.Items, err = expandDownwardAPIVolumeFile(v)
@@ -587,22 +724,33 @@ func expandPersistentVolumeClaimVolumeSource(l []interface{}) *v1.PersistentVolu
 	return obj
 }
 
-func expandSecretVolumeSource(l []interface{}) *v1.SecretVolumeSource {
+func expandSecretVolumeSource(l []interface{}) (*v1.SecretVolumeSource, error) {
+	obj := &v1.SecretVolumeSource{}
 	if len(l) == 0 || l[0] == nil {
-		return &v1.SecretVolumeSource{}
+		return obj, nil
 	}
 	in := l[0].(map[string]interface{})
-	obj := &v1.SecretVolumeSource{
-		DefaultMode: ptrToInt32(int32(in["default_mode"].(int))),
-		SecretName:  in["secret_name"].(string),
-		Optional:    ptrToBool(in["optional"].(bool)),
+
+	if mode, ok := in["default_mode"].(string); ok && len(mode) > 0 {
+		v, err := strconv.ParseInt(mode, 8, 32)
+		if err != nil {
+			return obj, fmt.Errorf("Secret volume: failed to parse 'default_mode' value: %s", err)
+		}
+		obj.DefaultMode = ptrToInt32(int32(v))
 	}
 
+	if secret, ok := in["secret_name"].(string); ok {
+		obj.SecretName = secret
+	}
+
+	if opt, ok := in["optional"].(bool); ok {
+		obj.Optional = ptrToBool(opt)
+	}
 	if v, ok := in["items"].([]interface{}); ok && len(v) > 0 {
 		obj.Items = expandKeyPath(v)
 	}
 
-	return obj
+	return obj, nil
 }
 
 func expandVolumes(volumes []interface{}) ([]v1.Volume, error) {
@@ -618,7 +766,11 @@ func expandVolumes(volumes []interface{}) ([]v1.Volume, error) {
 		}
 
 		if value, ok := m["config_map"].([]interface{}); ok && len(value) > 0 {
-			vl[i].ConfigMap = expandConfigMapVolumeSource(value)
+			cfm, err := expandConfigMapVolumeSource(value)
+			vl[i].ConfigMap = cfm
+			if err != nil {
+				return vl, err
+			}
 		}
 		if value, ok := m["git_repo"].([]interface{}); ok && len(value) > 0 {
 			vl[i].GitRepo = expandGitRepoVolumeSource(value)
@@ -639,7 +791,11 @@ func expandVolumes(volumes []interface{}) ([]v1.Volume, error) {
 			vl[i].PersistentVolumeClaim = expandPersistentVolumeClaimVolumeSource(value)
 		}
 		if value, ok := m["secret"].([]interface{}); ok && len(value) > 0 {
-			vl[i].Secret = expandSecretVolumeSource(value)
+			sc, err := expandSecretVolumeSource(value)
+			if err != nil {
+				return vl, err
+			}
+			vl[i].Secret = sc
 		}
 		if v, ok := m["gce_persistent_disk"].([]interface{}); ok && len(v) > 0 {
 			vl[i].GCEPersistentDisk = expandGCEPersistentDiskVolumeSource(v)
