@@ -16,6 +16,14 @@ func flattenPodSpec(in v1.PodSpec) ([]interface{}, error) {
 		att["active_deadline_seconds"] = *in.ActiveDeadlineSeconds
 	}
 
+	if in.Affinity != nil {
+		att["affinity"] = flattenAffinity(in.Affinity)
+	}
+
+	if in.AutomountServiceAccountToken != nil {
+		att["automount_service_account_token"] = *in.AutomountServiceAccountToken
+	}
+
 	containers, err := flattenContainers(in.Containers)
 	if err != nil {
 		return nil, err
@@ -64,6 +72,10 @@ func flattenPodSpec(in v1.PodSpec) ([]interface{}, error) {
 	if in.ServiceAccountName != "" {
 		att["service_account_name"] = in.ServiceAccountName
 	}
+	if in.ShareProcessNamespace != nil {
+		att["share_process_namespace"] = *in.ShareProcessNamespace
+	}
+
 	if in.Subdomain != "" {
 		att["subdomain"] = in.Subdomain
 	}
@@ -380,6 +392,18 @@ func expandPodSpec(p []interface{}) (*v1.PodSpec, error) {
 		obj.ActiveDeadlineSeconds = ptrToInt64(int64(v))
 	}
 
+	if v, ok := in["affinity"].([]interface{}); ok && len(v) > 0 {
+		a, err := expandAffinity(v)
+		if err != nil {
+			return obj, err
+		}
+		obj.Affinity = a
+	}
+
+	if v, ok := in["automount_service_account_token"].(bool); ok {
+		obj.AutomountServiceAccountToken = ptrToBool(v)
+	}
+
 	if v, ok := in["container"].([]interface{}); ok && len(v) > 0 {
 		cs, err := expandContainers(v)
 		if err != nil {
@@ -461,6 +485,10 @@ func expandPodSpec(p []interface{}) (*v1.PodSpec, error) {
 
 	if v, ok := in["service_account_name"].(string); ok {
 		obj.ServiceAccountName = v
+	}
+
+	if v, ok := in["share_process_namespace"]; ok {
+		obj.ShareProcessNamespace = ptrToBool(v.(bool))
 	}
 
 	if v, ok := in["subdomain"].(string); ok {
