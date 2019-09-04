@@ -91,7 +91,6 @@ func expandDeploymentSpec(deployment []interface{}) (*appsv1.DeploymentSpec, err
 		return obj, err
 	}
 	obj.Template = *template
-
 	return obj, nil
 }
 
@@ -121,6 +120,7 @@ func expandDeploymentStrategy(l []interface{}) appsv1.DeploymentStrategy {
 		obj.Type = appsv1.RollingUpdateDeploymentStrategyType
 		return obj
 	}
+
 	in := l[0].(map[string]interface{})
 
 	if v, ok := in["type"].(string); ok {

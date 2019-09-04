@@ -7,7 +7,6 @@ import (
 )
 
 // Flatteners
-
 func flattenIngressRule(in []v1beta1.IngressRule) []interface{} {
 	att := make([]interface{}, len(in), len(in))
 	for i, n := range in {
