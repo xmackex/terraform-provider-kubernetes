@@ -27,10 +27,3 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.0.0-20191025230902-aa872b06629d
 )
-
-replace (
-	github.com/gophercloud/gophercloud v0.0.0-20190523203818-4885c347dcf4 => github.com/gophercloud/gophercloud v0.0.0-20190523203039-4885c347dcf4
-	github.com/keybase/go-crypto v0.0.0-20190523171820-b785b22cc757 => github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757
-)
-
-go 1.13
