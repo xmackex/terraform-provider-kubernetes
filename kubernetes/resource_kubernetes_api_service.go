@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgApi "k8s.io/apimachinery/pkg/types"
@@ -27,7 +27,7 @@ func resourceKubernetesAPIService() *schema.Resource {
 			"metadata": metadataSchema("api_service", true),
 			"spec": {
 				Type:        schema.TypeList,
-				Description: "Spec contains information for locating and communicating with a server. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status",
+				Description: "Spec contains information for locating and communicating with a server. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status",
 				Required:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{

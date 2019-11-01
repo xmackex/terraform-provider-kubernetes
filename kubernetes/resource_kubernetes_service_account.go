@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +24,10 @@ func resourceKubernetesServiceAccount() *schema.Resource {
 		Delete: resourceKubernetesServiceAccountDelete,
 		Importer: &schema.ResourceImporter{
 			State: resourceKubernetesServiceAccountImportState,
+		},
+
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(30 * time.Second),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -90,7 +94,7 @@ func resourceKubernetesServiceAccountCreate(d *schema.ResourceData, meta interfa
 	// Here we get the only chance to identify and store default secret name
 	// so we can avoid showing it in diff as it's not managed by Terraform
 	var svcAccTokens []api.Secret
-	err = resource.Retry(30*time.Second, func() *resource.RetryError {
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 		resp, err := conn.CoreV1().ServiceAccounts(out.Namespace).Get(out.Name, metav1.GetOptions{})
 		if err != nil {
 			return resource.NonRetryableError(err)

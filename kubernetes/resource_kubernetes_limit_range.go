@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +26,7 @@ func resourceKubernetesLimitRange() *schema.Resource {
 			"metadata": namespacedMetadataSchema("limit range", true),
 			"spec": {
 				Type:        schema.TypeList,
-				Description: "Spec defines the limits enforced. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status",
+				Description: "Spec defines the limits enforced. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status",
 				Optional:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{

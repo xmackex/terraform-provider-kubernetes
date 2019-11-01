@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,8 +234,7 @@ func resourceKubernetesDaemonSetDelete(d *schema.ResourceData, meta interface{})
 
 	log.Printf("[INFO] Deleting daemonset: %#v", name)
 
-	policy := metav1.DeletePropagationForeground
-	err = conn.AppsV1().DaemonSets(namespace).Delete(name, &metav1.DeleteOptions{PropagationPolicy: &policy})
+	err = conn.AppsV1().DaemonSets(namespace).Delete(name, &deleteOptions)
 	if err != nil {
 		return err
 	}

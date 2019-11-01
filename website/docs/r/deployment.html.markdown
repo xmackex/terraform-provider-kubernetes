@@ -79,8 +79,8 @@ resource "kubernetes_deployment" "example" {
 
 The following arguments are supported:
 
-* `metadata` - (Required) Standard deployment's metadata. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/e59e666e3464c7d4851136baa8835a311efdfb8e/contributors/devel/api-conventions.md#metadata)
-* `spec` - (Required) Spec defines the specification of the desired behavior of the deployment. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/e59e666e3464c7d4851136baa8835a311efdfb8e/contributors/devel/api-conventions.md#spec-and-status)
+* `metadata` - (Required) Standard deployment's metadata. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata)
+* `spec` - (Required) Spec defines the specification of the desired behavior of the deployment. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status)
 
 ## Nested Blocks
 
@@ -91,7 +91,7 @@ The following arguments are supported:
 * `annotations` - (Optional) An unstructured key value map stored with the deployment that may be used to store arbitrary metadata. 
 **By default, the provider ignores any annotations whose key names end with *kubernetes.io*. This is necessary because such annotations can be mutated by server-side components and consequently cause a perpetual diff in the Terraform plan output. If you explicitly specify any such annotations in the configuration template then Terraform will consider these as normal resource attributes and manage them as expected (while still avoiding the perpetual diff problem).**
 For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/annotations)
-* `generate_name` - (Optional) Prefix, used by the server, to generate a unique name ONLY IF the `name` field has not been provided. This value will also be combined with a unique suffix. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/e59e666e3464c7d4851136baa8835a311efdfb8e/contributors/devel/api-conventions.md#idempotency)
+* `generate_name` - (Optional) Prefix, used by the server, to generate a unique name ONLY IF the `name` field has not been provided. This value will also be combined with a unique suffix. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#idempotency)
 * `labels` - (Optional) Map of string keys and values that can be used to organize and categorize (scope and select) the deployment. 
 **By default, the provider ignores any labels whose key names end with *kubernetes.io*. This is necessary because such labels can be mutated by server-side components and consequently cause a perpetual diff in the Terraform plan output. If you explicitly specify any such labels in the configuration template then Terraform will consider these as normal resource attributes and manage them as expected (while still avoiding the perpetual diff problem).**
 **Must match `selector`**. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/labels)
@@ -101,7 +101,7 @@ For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/an
 #### Attributes
 
 * `generation` - A sequence number representing a specific generation of the desired state.
-* `resource_version` - An opaque value that represents the internal version of this deployment that can be used by clients to determine when deployment has changed. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/e59e666e3464c7d4851136baa8835a311efdfb8e/contributors/devel/api-conventions.md#concurrency-control-and-consistency)
+* `resource_version` - An opaque value that represents the internal version of this deployment that can be used by clients to determine when deployment has changed. For more info see [Kubernetes reference](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency)
 * `self_link` - A URL representing this deployment.
 * `uid` - The unique in time and space value for this deployment. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/identifiers#uids)
 
@@ -158,6 +158,7 @@ For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/an
 * `image_pull_secrets` - (Optional) ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/images#specifying-imagepullsecrets-on-a-pod)
 * `node_name` - (Optional) NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.
 * `node_selector` - (Optional) NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/node-selection).
+* `priority_class_name` - (Optional) If specified, indicates the pod's priority. 'system-node-critical' and 'system-cluster-critical' are two special keywords which indicate the highest priorities with the formerer being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.
 * `restart_policy` - (Optional) Restart policy for all containers within the pod. One of Always, OnFailure, Never. For more info see [Kubernetes reference](http://kubernetes.io/docs/user-guide/pod-states#restartpolicy).
 * `security_context` - (Optional) SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty
 * `service_account_name` - (Optional) ServiceAccountName is the name of the ServiceAccount to use to run this pod. For more info see http://releases.k8s.io/HEAD/docs/design/service_accounts.md.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	api "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +26,7 @@ func resourceKubernetesHorizontalPodAutoscaler() *schema.Resource {
 			"metadata": namespacedMetadataSchema("horizontal pod autoscaler", true),
 			"spec": {
 				Type:        schema.TypeList,
-				Description: "Behaviour of the autoscaler. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status",
+				Description: "Behaviour of the autoscaler. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status",
 				Required:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{

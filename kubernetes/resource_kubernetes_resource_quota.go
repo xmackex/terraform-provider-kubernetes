@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,11 +24,16 @@ func resourceKubernetesResourceQuota() *schema.Resource {
 			State: schema.ImportStatePassthrough,
 		},
 
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(1 * time.Minute),
+			Update: schema.DefaultTimeout(1 * time.Minute),
+		},
+
 		Schema: map[string]*schema.Schema{
 			"metadata": namespacedMetadataSchema("resource quota", true),
 			"spec": {
 				Type:        schema.TypeList,
-				Description: "Spec defines the desired quota. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status",
+				Description: "Spec defines the desired quota. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status",
 				Optional:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{
@@ -75,7 +80,7 @@ func resourceKubernetesResourceQuotaCreate(d *schema.ResourceData, meta interfac
 	log.Printf("[INFO] Submitted new resource quota: %#v", out)
 	d.SetId(buildId(out.ObjectMeta))
 
-	err = resource.Retry(1*time.Minute, func() *resource.RetryError {
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 		quota, err := conn.CoreV1().ResourceQuotas(out.Namespace).Get(out.Name, meta_v1.GetOptions{})
 		if err != nil {
 			return resource.NonRetryableError(err)
@@ -165,7 +170,7 @@ func resourceKubernetesResourceQuotaUpdate(d *schema.ResourceData, meta interfac
 	d.SetId(buildId(out.ObjectMeta))
 
 	if waitForChangedSpec {
-		err = resource.Retry(1*time.Minute, func() *resource.RetryError {
+		err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
 			quota, err := conn.CoreV1().ResourceQuotas(namespace).Get(name, meta_v1.GetOptions{})
 			if err != nil {
 				return resource.NonRetryableError(err)

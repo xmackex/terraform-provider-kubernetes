@@ -6,8 +6,8 @@ import (
 	"time"
 
 	gversion "github.com/hashicorp/go-version"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +23,10 @@ func resourceKubernetesPersistentVolume() *schema.Resource {
 		Delete: resourceKubernetesPersistentVolumeDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
+		},
+
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(5 * time.Minute),
 		},
 
 		CustomizeDiff: func(diff *schema.ResourceDiff, meta interface{}) error {
@@ -160,7 +164,7 @@ func resourceKubernetesPersistentVolumeCreate(d *schema.ResourceData, meta inter
 	stateConf := &resource.StateChangeConf{
 		Target:  []string{"Available", "Bound"},
 		Pending: []string{"Pending"},
-		Timeout: 5 * time.Minute,
+		Timeout: d.Timeout(schema.TimeoutCreate),
 		Refresh: func() (interface{}, string, error) {
 			out, err := conn.CoreV1().PersistentVolumes().Get(metadata.Name, meta_v1.GetOptions{})
 			if err != nil {
