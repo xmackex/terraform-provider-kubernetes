@@ -2,7 +2,6 @@ package kubernetes
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	api "k8s.io/api/policy/v1beta1"
@@ -16,30 +15,18 @@ func expandPodDisruptionBudgetSpec(in []interface{}) (*api.PodDisruptionBudgetSp
 	}
 	m := in[0].(map[string]interface{})
 	if v, ok := m["max_unavailable"].(string); ok && len(v) > 0 {
-		spec.MaxUnavailable = expandPodDisruptionBudgetSpecIntOrString(v)
+		val := intstr.Parse(v)
+		spec.MaxUnavailable = &val
 	}
 	if v, ok := m["min_available"].(string); ok && len(v) > 0 {
-		spec.MinAvailable = expandPodDisruptionBudgetSpecIntOrString(v)
+		val := intstr.Parse(v)
+		spec.MinAvailable = &val
 	}
 	if v, ok := m["selector"].([]interface{}); ok && len(v) > 0 {
 		spec.Selector = expandLabelSelector(v)
 	}
 
 	return spec, nil
-}
-
-func expandPodDisruptionBudgetSpecIntOrString(v string) *intstr.IntOrString {
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return &intstr.IntOrString{
-			Type:   intstr.String,
-			StrVal: v,
-		}
-	}
-	return &intstr.IntOrString{
-		Type:   intstr.Int,
-		IntVal: int32(i),
-	}
 }
 
 func flattenPodDisruptionBudgetSpec(spec api.PodDisruptionBudgetSpec) []interface{} {
@@ -57,6 +44,7 @@ func flattenPodDisruptionBudgetSpec(spec api.PodDisruptionBudgetSpec) []interfac
 	return []interface{}{m}
 }
 
+// Currently unused, but will be useful for Kubernetes 1.15 when patching is allowed.
 func patchPodDisruptionBudgetSpec(prefix string, pathPrefix string, d *schema.ResourceData) (*[]PatchOperation, error) {
 	ops := make([]PatchOperation, 0)
 

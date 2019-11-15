@@ -286,14 +286,14 @@ func validateTypeStringNullableIntOrPercent(v interface{}, key string) (ws []str
 	}
 
 	if strings.HasSuffix(value, "%") {
-		percent, err := strconv.ParseInt(strings.TrimSuffix(value, "%"), 10, 64)
+		percent, err := strconv.ParseInt(strings.TrimSuffix(value, "%"), 10, 32)
 		if err != nil {
 			es = append(es, fmt.Errorf("%s: cannot parse '%s' as percent: %s", key, value, err))
 		}
 		if percent < 0 || percent >= 100 {
 			es = append(es, fmt.Errorf("%s: '%s' is not between 0%% and 100%%", key, value))
 		}
-	} else if _, err := strconv.ParseInt(value, 10, 64); err != nil {
+	} else if _, err := strconv.ParseInt(value, 10, 32); err != nil {
 		es = append(es, fmt.Errorf("%s: cannot parse '%s' as int or percent: %s", key, value, err))
 	}
 

@@ -32,7 +32,8 @@ func resourceKubernetesPodDisruptionBudget() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"metadata": namespacedMetadataSchema("pod disruption budget", true),
-			// Updates to spec not allowed; have to delete and recreate
+			// Updates to spec not allowed until Kubernetes dependencies are updated to
+			// 1.13; have to delete and recreate until then
 			// https://github.com/kubernetes/kubernetes/issues/45398
 			"spec": {
 				Type:        schema.TypeList,
@@ -59,7 +60,7 @@ func resourceKubernetesPodDisruptionBudget() *schema.Resource {
 						"selector": {
 							Type:        schema.TypeList,
 							Description: podDisruptionBudgetSpecSelectorDoc,
-							Optional:    true,
+							Required:    true,
 							ForceNew:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{

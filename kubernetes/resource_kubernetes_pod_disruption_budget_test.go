@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/acctest"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	api "k8s.io/api/policy/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -77,25 +77,6 @@ func TestAccKubernetesPodDisruptionBudget_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "spec.0.selector.0.match_expressions.0.values.2356372769", "foo"),
 					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "spec.0.selector.0.match_expressions.0.values.270302810", "apps")),
 			},
-			{
-				Config: testAccKubernetesPodDisruptionBudgetConfig_noSelector(name),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckKubernetesPodDisruptionBudgetExists("kubernetes_pod_disruption_budget.test", &conf),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "metadata.0.annotations.%", "0"),
-					testAccCheckMetaAnnotations(&conf.ObjectMeta, map[string]string{}),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "metadata.0.labels.%", "0"),
-					testAccCheckMetaLabels(&conf.ObjectMeta, map[string]string{}),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "metadata.0.name", name),
-					resource.TestCheckResourceAttrSet("kubernetes_pod_disruption_budget.test", "metadata.0.generation"),
-					resource.TestCheckResourceAttrSet("kubernetes_pod_disruption_budget.test", "metadata.0.resource_version"),
-					resource.TestCheckResourceAttrSet("kubernetes_pod_disruption_budget.test", "metadata.0.self_link"),
-					resource.TestCheckResourceAttrSet("kubernetes_pod_disruption_budget.test", "metadata.0.uid"),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "spec.#", "1"),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "spec.0.max_unavailable", "10%"),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "spec.0.min_available", ""),
-					resource.TestCheckResourceAttr("kubernetes_pod_disruption_budget.test", "spec.0.selector.#", "0"),
-				),
-			},
 		},
 	})
 }
@@ -122,7 +103,7 @@ func TestAccKubernetesPodDisruptionBudget_importBasic(t *testing.T) {
 }
 
 func testAccCheckKubernetesPodDisruptionBudgetDestroy(s *terraform.State) error {
-	conn := testAccProvider.Meta().((*KubeClientsets).MainClientset)
+	conn := testAccProvider.Meta().(*KubeClientsets).MainClientset
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "kubernetes_pod_disruption_budget" {
@@ -152,7 +133,7 @@ func testAccCheckKubernetesPodDisruptionBudgetExists(n string, obj *api.PodDisru
 			return fmt.Errorf("Not found: %s", n)
 		}
 
-		conn := testAccProvider.Meta().((*KubeClientsets).MainClientset)
+		conn := testAccProvider.Meta().(*KubeClientsets).MainClientset
 
 		namespace, name, err := idParts(rs.Primary.ID)
 		if err != nil {
@@ -173,11 +154,11 @@ func testAccKubernetesPodDisruptionBudgetConfig_maxUnavailable(name string) stri
 	return fmt.Sprintf(`
 resource "kubernetes_pod_disruption_budget" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelThree = "three"
       TestLabelFour  = "four"
@@ -189,7 +170,7 @@ resource "kubernetes_pod_disruption_budget" "test" {
   spec {
     max_unavailable = 1
     selector {
-      match_labels {
+      match_labels = {
         foo = "bar"
       }
     }
@@ -203,11 +184,11 @@ func testAccKubernetesPodDisruptionBudgetConfig_minAvailable(name string) string
 	return fmt.Sprintf(`
 resource "kubernetes_pod_disruption_budget" "test" {
   metadata {
-    annotations {
+    annotations = {
       TestAnnotationOne = "one"
     }
 
-    labels {
+    labels = {
       TestLabelOne   = "one"
       TestLabelThree = "three"
       TestLabelFour  = "four"
@@ -225,21 +206,6 @@ resource "kubernetes_pod_disruption_budget" "test" {
         values = ["foo", "apps"]
       }
     }
-  }
-}
-`, name)
-}
-
-func testAccKubernetesPodDisruptionBudgetConfig_noSelector(name string) string {
-	// Note the percent sign in max_unavailable is golang-escaped to be double percent signs
-	return fmt.Sprintf(`
-resource "kubernetes_pod_disruption_budget" "test" {
-  metadata {
-    name = "%s"
-  }
-
-  spec {
-    max_unavailable = "10%%"
   }
 }
 `, name)
